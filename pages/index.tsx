@@ -1,9 +1,75 @@
-import type { NextPage } from 'next'
-import Head from 'next/head'
-import Image from 'next/image'
-import styles from '../styles/Home.module.css'
+import type { NextPage } from "next"
+import Head from "next/head"
+import Image from "next/image"
+import { useState, useCallback, useRef, useEffect } from "react"
+import styles from "../styles/Home.module.css"
+import { Data } from "./api/chat"
+import io, { Socket } from "socket.io-client"
+import { DefaultEventsMap } from "@socket.io/component-emitter"
+let socket: Socket<DefaultEventsMap, DefaultEventsMap>
 
 const Home: NextPage = () => {
+  const [playerMessage, setPlayerMessage] = useState("")
+  const [loading, setLoading] = useState(false)
+  const [npcResponse, setNpcResponse] = useState("")
+
+  const playerNameRef = useRef<HTMLInputElement>(null)
+
+  const setMessage = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    setPlayerMessage(() => e.target.value)
+  }, [])
+
+  // const sendMessage = useCallback(async () => {
+  //   setLoading(true)
+  //   const playerName = playerNameRef.current?.value
+
+  //   const res = await fetch(
+  //     `/api/chat?message=${playerMessage}&name=${playerName}`
+  //   )
+
+  //   const data = await res.json()
+
+  //   console.log("DBG: data response", { data })
+
+  //   const response: Data = JSON.parse(data)
+
+  //   if (!response.success) {
+  //     setLoading(false)
+  //     console.log("Erro")
+  //     return
+  //   }
+
+  //   setNpcResponse(response.text)
+  //   setLoading(true)
+  // }, [playerMessage, playerNameRef])
+
+  useEffect(() => {
+    async function startSocket() {
+      socketInitializer()
+    }
+
+    startSocket()
+  }, [])
+
+  const socketInitializer = async () => {
+    await fetch("/api/chat")
+    socket = io()
+
+    socket.on("server-message-received", (msg) => {
+      setLoading(false)
+      setNpcResponse(msg)
+    })
+  }
+
+  const sendClientMessage = useCallback(async () => {
+    setLoading(true)
+    const playerName = playerNameRef.current?.value
+    socket.emit("client-message-sent", {
+      message: playerMessage,
+      name: playerName,
+    })
+  }, [playerMessage, playerNameRef])
+
   return (
     <div className={styles.container}>
       <Head>
@@ -13,58 +79,16 @@ const Home: NextPage = () => {
       </Head>
 
       <main className={styles.main}>
-        <h1 className={styles.title}>
-          Welcome to <a href="https://nextjs.org">Next.js!</a>
-        </h1>
-
-        <p className={styles.description}>
-          Get started by editing{' '}
-          <code className={styles.code}>pages/index.tsx</code>
-        </p>
-
-        <div className={styles.grid}>
-          <a href="https://nextjs.org/docs" className={styles.card}>
-            <h2>Documentation &rarr;</h2>
-            <p>Find in-depth information about Next.js features and API.</p>
-          </a>
-
-          <a href="https://nextjs.org/learn" className={styles.card}>
-            <h2>Learn &rarr;</h2>
-            <p>Learn about Next.js in an interactive course with quizzes!</p>
-          </a>
-
-          <a
-            href="https://github.com/vercel/next.js/tree/canary/examples"
-            className={styles.card}
-          >
-            <h2>Examples &rarr;</h2>
-            <p>Discover and deploy boilerplate example Next.js projects.</p>
-          </a>
-
-          <a
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=default-template&utm_campaign=create-next-app"
-            className={styles.card}
-          >
-            <h2>Deploy &rarr;</h2>
-            <p>
-              Instantly deploy your Next.js site to a public URL with Vercel.
-            </p>
-          </a>
-        </div>
+        <span>Your Name</span>
+        <input ref={playerNameRef} disabled={loading}></input>
+        <span>Message</span>
+        <input value={playerMessage} onChange={setMessage} disabled={loading} />
+        <button disabled={loading} onClick={() => sendClientMessage()}>
+          Send Message
+        </button>
+        <h2>Response:</h2>
+        <p>{npcResponse}</p>
       </main>
-
-      <footer className={styles.footer}>
-        <a
-          href="https://vercel.com?utm_source=create-next-app&utm_medium=default-template&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Powered by{' '}
-          <span className={styles.logo}>
-            <Image src="/vercel.svg" alt="Vercel Logo" width={72} height={16} />
-          </span>
-        </a>
-      </footer>
     </div>
   )
 }
